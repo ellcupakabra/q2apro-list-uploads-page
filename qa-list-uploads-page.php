@@ -60,7 +60,7 @@
 				// delete image from database, i.e. blobid from table qa_blobs
 				$queryDeleteBlob = qa_db_query_sub("DELETE FROM `^blobs` WHERE blobid = ".$deleteBlobId." LIMIT 1;");
 				$qa_content['custom0']='<p style="margin-top:40px;font-size:15px;">Image with BlobID '.$deleteBlobId.' has been deleted!<br /><br />Thanks for cleaning up :)</p>';
-				$qa_content['custom1']='<a href="./">back to upload list</a>';
+				$qa_content['custom1']='<a href="./listuploads">back to upload list</a>';
 				return $qa_content;
 			}
 			
