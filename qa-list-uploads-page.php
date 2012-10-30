@@ -35,35 +35,75 @@
 
 		function process_request($request)
 		{
-		
-			/* SETTINGS */
-			$lastdays = 3; 				// show new uploads from last x days
-			$creditDeveloper = true;	// leave true if you like this plugin, it sets one hidden link to my q2a-forum from the new-uploads-page only
+			// you can set number of days to be shown in the URL, e.g. yoursite.com/listuploads?days=5
+			$lastdays = qa_get("days");
+			if(is_null($lastdays) || $lastdays<=0) {
+				$lastdays = 3; // show new uploads from last x days
+			}
 			
 			/* start */
 			$qa_content=qa_content_prepare();
 
 			// page title
-			$qa_content['title'] = qa_lang_html('qa_list_uploads_lang/page_title'); 
+			$qa_content['title'] = qa_lang_html('qa_list_uploads_lang/page_title') . " ".$lastdays." ".qa_lang_html('qa_list_uploads_lang/page_days'); 
 
-			// counter for custom html output
-			$c = 2;
+			// return if not admin!
+			$level=qa_get_logged_in_level();
+			if ($level<QA_USER_LEVEL_ADMIN) {
+				$qa_content['custom0']='<div>'.qa_lang_html('qa_list_uploads_lang/not_allowed').'</div>';
+				return $qa_content;
+			}
 			
+			// delete button was hit by admin
+			$deleteBlobId = qa_get("delete");
+			if(!is_null($deleteBlobId)) {
+				// delete image from database, i.e. blobid from table qa_blobs
+				$queryDeleteBlob = qa_db_query_sub("DELETE FROM `^blobs` WHERE blobid = ".$deleteBlobId." LIMIT 1;");
+				$qa_content['custom0']='<p style="margin-top:40px;font-size:15px;">Image with BlobID '.$deleteBlobId.' has been deleted!<br /><br />Thanks for cleaning up :)</p>';
+				$qa_content['custom1']='<a href="./">back to upload list</a>';
+				return $qa_content;
+			}
+			
+
 			// required for qa_get_blob_url()
 			require_once QA_INCLUDE_DIR.'qa-app-blobs.php';
 			
 			// query blobs of last x days
-			$queryRecentUploads = qa_db_query_sub("SELECT blobid,format,content,userid,created
+			$queryRecentUploads = qa_db_query_sub("SELECT blobid,format,userid,created
 											FROM `^blobs`
 											WHERE created > NOW() - INTERVAL ".$lastdays." DAY
 											ORDER BY created DESC;"); // LIMIT 0,100
 											
+			// counter for custom html output
+			$c = 2;
+			
 			// initiate output string
-			$listAllUploads = "<table> <thead><tr><th class='column1'>".qa_lang_html('qa_list_uploads_lang/upload_date')."</th>  <th class='column1'>".qa_lang_html('qa_list_uploads_lang/media_item')."</th> <th class='column2'>".qa_lang_html('qa_list_uploads_lang/upload_by_user')."</th> </tr></thead>";
+			$listAllUploads = "<table> <thead><tr><th class='column1'>".qa_lang_html('qa_list_uploads_lang/upload_date')."</th>  <th class='column1'>".qa_lang_html('qa_list_uploads_lang/media_item')."</th> <th>Size</th> <th class='column2'>".qa_lang_html('qa_list_uploads_lang/upload_by_user')."</th> </tr></thead>";
 			$d = 0;
 			while ( ($blobrow = qa_db_read_one_assoc($queryRecentUploads,true)) !== null ) {
 				$currentUser = $blobrow['userid'];
 				$userrow = qa_db_select_with_pending( qa_db_user_account_selectspec($currentUser, true) );
+				
+				// get size of image
+				$imageSizeQuery = qa_db_query_sub("SELECT OCTET_LENGTH(content) FROM `^blobs` WHERE blobid='".$blobrow['blobid']."' LIMIT 1");
+				// $imgRow = qa_db_read_one_assoc($queryRecentUploads,true)
+				$theSize = mysql_fetch_array($imageSizeQuery);
+				$imgSize = round($theSize[0]/1000, 1).' kB';
+				
+				// check if image is used in post content
+				$notFoundString = '<span style="color:#F00">&rarr; not found in posts &rarr; <a style="color:#F00;" href="?delete='.$blobrow['blobid'].'">delete image?</a></span>';
+				$imageExistsQuery = qa_db_query_sub("SELECT postid FROM `^posts` WHERE `content` LIKE '%".$blobrow['blobid']."%' LIMIT 1");
+				$imageInPost = mysql_fetch_array($imageExistsQuery);
+				$existsInPost = $imageInPost[0];
+				$existsInPost = ($existsInPost=="") ? $notFoundString : "";
+
+				// check if image is used as user avatar
+				$avImageExistsQuery = qa_db_query_sub("SELECT userid FROM `^users` WHERE `avatarblobid` LIKE '".$blobrow['blobid']."' LIMIT 1");
+				$imageAsAvatar = mysql_fetch_array($avImageExistsQuery);
+				$existsAsAvatar = $imageAsAvatar[0];
+				if($existsInPost==$notFoundString && $existsAsAvatar!="") {
+					$existsInPost = "<span style='color:#00F'>&rarr; used as avatar image</span>";
+				}
 				
 				// if you do not have a lightbox added to your theme, use version A and comment out B
 				// see also lightbox-tutorial: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial
@@ -72,7 +112,7 @@
 				// $listAllUploads .= "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><a target='_blank' href='".qa_get_blob_url($blobrow['blobid'])."'><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \></a></td> <td></td> </tr>";
 				
 				// B: with lightbox -> open image in popup
-				$listAllUploads .= "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \></td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
+				$listAllUploads .= "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."</td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
 			}
 			$listAllUploads .= "</table>";
 
@@ -105,11 +145,6 @@
 			}
 			});
 			</script>';
-			
-			// as I said, this is one chance to say thank you
-			if($creditDeveloper) {
-				$qa_content['custom'.++$c] = "<a style='display:none' href='http://www.gute-mathe-fragen.de/'>Gute Mathe-Fragen! * Bestes Mathe-Forum</a>";
-			}
 			
 			// custom css for qa-main
 			$qa_content['custom'.++$c] = '<style type="text/css">.qa-main { margin:20px 0 0 60px; width:640px; }</style>';

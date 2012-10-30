@@ -21,11 +21,12 @@
 	/* this file is UTF-8 encoded, you can use your language characters without worries */
 	
 	return array(
-		'page_title' => 'Uploads der letzten Tage', // uploads of last days
+		'page_title' => 'Uploads der letzten', // uploads of last (x days)
 		'page_days' => 'Tage', // days
 		'upload_date' => 'Datum', // date
-		'upload_by_user' => 'Mitglied', // upload by username
-		'media_item' => 'Bild', // media item
+		'upload_by_user' => 'Mitglied', // username
+		'media_item' => 'Bild', // image
+		'not_allowed' => 'Du hast keine Berechtigung, diese Seite aufzurufen.', // You do not have permission to access this site.
 	);
 	
 

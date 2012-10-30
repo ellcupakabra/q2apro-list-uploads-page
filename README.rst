@@ -1,5 +1,5 @@
 ====================================
-Question2Answer List Uploads v0.1
+Question2Answer List Uploads v0.2
 ====================================
 -----------
 Description
@@ -9,7 +9,12 @@ This is a plugin for **Question2Answer** that displays the newest uploads (image
 --------
 Features
 --------
-- provides a page for showing newest uploads of last x days, access-URL ``your-q2a-installation.com/listuploads``
+- page only accessible by admin
+- provides a page for showing newest image uploads of last x days, access-URL ``your-q2a-installation.com/listuploads``
+- shows upload date, blobid, size of image in kB, and user that uploaded
+- admin can specifiy number of past days to show images by URL: listuploads?days=5 
+- checks if each image is used within posts or as avatar
+- admin can delete images that are not used
 
 ------------
 Installation
