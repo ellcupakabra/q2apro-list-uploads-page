@@ -35,14 +35,46 @@
 
 		function process_request($request)
 		{
-			// you can set number of days to be shown in the URL, e.g. yoursite.com/listuploads?days=5
+			/* process URL parameters */ 
+			
+			// you can set number of days to be shown in the URL
+			// e.g. yoursite.com/listuploads?days=5
 			$lastdays = qa_get("days");
 			if(is_null($lastdays) || $lastdays<=0) {
 				$lastdays = 3; // show new uploads from last x days
 			}
 			
-			/* start */
-			$qa_content=qa_content_prepare();
+			// you can set a flag in the URL to show only those images that do not exist in posts/avatars
+			// e.g. yoursite.com/listuploads?days=5&remove=1
+			$onlyImgToRemove = qa_get("remove");
+			$removeMode = false;
+			if(!is_null($onlyImgToRemove)) {
+				$removeMode=true;
+			}
+			
+			// you can specifiy a username in the URL if you wish to only see images of this user
+			// e.g. yoursite.com/listuploads?days=30&user=William35
+			$gotUserName = qa_get("user");
+			$usernameNotExists = false;
+			if(is_null($gotUserName)) {
+				$userid_toQuery = "";
+			}
+			else {
+				// get userid
+				$useridRowQuery = qa_db_query_sub("SELECT userid FROM ^users WHERE handle = '".$gotUserName."' LIMIT 1");
+				$theUserData = mysql_fetch_array($useridRowQuery);
+				if(!is_null($theUserData[0])) {				
+					$userid_toQuery = "AND userid = ".$theUserData[0];
+				}
+				else {
+					$userid_toQuery = "";
+					$usernameNotExists = true; // to inform admin
+				}
+			}
+			
+			
+			/* start content */
+			$qa_content = qa_content_prepare();
 
 			// page title
 			$qa_content['title'] = qa_lang_html('qa_list_uploads_lang/page_title') . " ".$lastdays." ".qa_lang_html('qa_list_uploads_lang/page_days'); 
@@ -64,15 +96,21 @@
 				return $qa_content;
 			}
 			
+			// inform admin if username passed by URL does not exist
+			if($usernameNotExists) {
+				$qa_content['custom0']='<div>'.qa_lang_html('qa_list_uploads_lang/user_not_existing').'</div>';
+				return $qa_content;
+			}
 
 			// required for qa_get_blob_url()
 			require_once QA_INCLUDE_DIR.'qa-app-blobs.php';
 			
 			// query blobs of last x days
-			$queryRecentUploads = qa_db_query_sub("SELECT blobid,format,userid,created
+			$queryRecentUploads = qa_db_query_sub("SELECT blobid,format,userid,created,filename
 											FROM `^blobs`
-											WHERE created > NOW() - INTERVAL ".$lastdays." DAY
-											ORDER BY created DESC;"); // LIMIT 0,100
+											WHERE created > NOW() - INTERVAL ".$lastdays." DAY " 
+											. $userid_toQuery .
+											" ORDER BY created DESC;"); // LIMIT 0,100
 											
 			// counter for custom html output
 			$c = 2;
@@ -92,10 +130,34 @@
 				
 				// check if image is used in post content
 				$notFoundString = '<span style="color:#F00">&rarr; not found in posts &rarr; <a style="color:#F00;" href="?delete='.$blobrow['blobid'].'">delete image?</a></span>';
-				$imageExistsQuery = qa_db_query_sub("SELECT postid FROM `^posts` WHERE `content` LIKE '%".$blobrow['blobid']."%' LIMIT 1");
+				$imageExistsQuery = qa_db_query_sub("SELECT postid,type,parentid FROM `^posts` WHERE `content` LIKE '%".$blobrow['blobid']."%' LIMIT 1");
 				$imageInPost = mysql_fetch_array($imageExistsQuery);
 				$existsInPost = $imageInPost[0];
-				$existsInPost = ($existsInPost=="") ? $notFoundString : "";
+				// $existsInPost = ($existsInPost=="") ? $notFoundString : "";
+				
+				// set link to question, answer, comment that contains the image
+				if($existsInPost=="") {
+					$existsInPost =  $notFoundString;
+				}
+				else if($imageInPost[1]=="A") {
+					$existsInPost = "<a href='".$imageInPost[2]."?show=".$imageInPost[0]."#a".$imageInPost[0]."' style='margin-left:10px;font-size:11px;'>&rarr; in answer: ".$existsInPost."</a>";
+				}
+				else if($imageInPost[1]=="C") {
+					// get question link from answer
+					$getQlink = mysql_fetch_array( qa_db_query_sub("SELECT parentid,type FROM `^posts` WHERE `postid` = ".$imageInPost[2]." LIMIT 1") );
+					$linkToQuestion = $getQlink[0];
+					if($getQlink[1]=="A") {
+						$existsInPost = "<a href='".$linkToQuestion."?show=".$imageInPost[0]."#c".$imageInPost[0]."' style='margin-left:10px;font-size:11px;'>&rarr; in comment: ".$existsInPost."</a>";
+					}
+					else {
+						// default: comment on question
+						$existsInPost = "<a href='".$imageInPost[2]."?show=".$imageInPost[0]."#c".$imageInPost[0]."' style='margin-left:10px;font-size:11px;'>&rarr; in comment: ".$existsInPost."</a>";
+					}
+				}
+				else {
+					// default: question
+					$existsInPost = "<a href='".$existsInPost."' style='margin-left:10px;font-size:11px;'>&rarr; in question: ".$imageInPost[0]."</a>";
+				}
 
 				// check if image is used as user avatar
 				$avImageExistsQuery = qa_db_query_sub("SELECT userid FROM `^users` WHERE `avatarblobid` LIKE '".$blobrow['blobid']."' LIMIT 1");
@@ -105,14 +167,20 @@
 					$existsInPost = "<span style='color:#00F'>&rarr; used as avatar image</span>";
 				}
 				
-				// if you do not have a lightbox added to your theme, use version A and comment out B
-				// see also lightbox-tutorial: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial
-				
-				// A: without lightbox -> open in new window
-				// $listAllUploads .= "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><a target='_blank' href='".qa_get_blob_url($blobrow['blobid'])."'><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \></a></td> <td></td> </tr>";
-				
-				// B: with lightbox -> open image in popup
-				$listAllUploads .= "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."</td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
+				$rowString = "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."<br /><span style='color:#777;font-size:11px;'>".$blobrow['filename']."</span></td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
+			
+				// list only images to be deleted or all images
+				if($removeMode) {
+					if($existsInPost==$notFoundString) {
+						$listAllUploads .= $rowString;
+					}
+				}
+				else {
+					// uncomment for hack: show only big images over 100K
+					//if($theSize[0] > 100000) {
+					$listAllUploads .= $rowString;
+					//}
+				}
 			}
 			$listAllUploads .= "</table>";
 
@@ -123,26 +191,42 @@
 			$qa_content['custom'.++$c]= $listAllUploads;
 			
 			$qa_content['custom'.++$c]='</div>';
+	
+			// show admin tip how to use parameters in URL
+			$qa_content['custom'.++$c]='<div style="padding:20px;border:1px solid #CCC;border-radius:10px;background:#FFC;"><p><b>Tip for Admin:</b><br />Use URL parameters to filter images: /listuploads?<span style="color:#F00">days=30</span>&amp;<span style="color:#090">remove=1</span>&amp;<span style="color:#00F">user=William35</span></p>';
+			$qa_content['custom'.++$c]='<p><span style="color:#F00">days=30</span> &rarr; sets number of days to be shown</p>';
+			$qa_content['custom'.++$c]='<p><span style="color:#090">remove=1</span> &rarr; show only images that do not exist in posts/avatars</p>';
+			$qa_content['custom'.++$c]='<p><span style="color:#00F">user=William35</span> &rarr; show only images of certain user</p>';
+			$qa_content['custom'.++$c]='</div>';
 			
-			// make list bigger on page and style the dropdown
+			// CSS: make list bigger on page and style the dropdown
 			$qa_content['custom'.++$c] = '<style type="text/css">table thead tr th,table tfoot tr th{background-color:#cfc;border:1px solid #CCC;padding:4px} table{background-color:#EEE;margin:30px 0 15px;text-align:left;border-collapse:collapse} td{border:1px solid #CCC;padding:1px 10px;line-height:25px}tr:hover{background:#ffc} .column1, .column2 {text-align:center; } td img{border:1px solid #DDD !important; margin-right:5px;} .listSmallImages { max-width:350px; max-height:100px; margin: 5px 0; cursor:pointer; } </style>';
 			
-			// jquery effect if click on image
+			// jquery lightbox effect: if you click an image, it opens in a popup 
+			// if you do not have a lightbox added to your theme, jquery will link the image to itself
+			// see also lightbox-tutorial: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial
 			$qa_content['custom'.++$c] = '<script type="text/javascript">
 			$(document).ready(function(){ 
-			// check if lightbox-popup exists
-			if ($("#lightbox-popup").length>0) { 
-				// lightbox effect for images
-				$(".listSmallImages").click(function(){
-					$("#lightbox-popup").fadeIn("fast");
-					$("#lightbox-img").attr("src", $(this).attr("src"));
-					// center vertical
-					$("#lightbox-center").css("margin-top", ($(window).height() - $("#lightbox-center").height())/2  + "px");
-				});
-				$("#lightbox-popup").click(function(){
-					$("#lightbox-popup").fadeOut("fast");
-				});
-			}
+				// check if lightbox-popup exists
+				if ($("#lightbox-popup").length>0) { 
+					// lightbox effect for images
+					$(".listSmallImages").click(function(){
+						$("#lightbox-popup").fadeIn("fast");
+						$("#lightbox-img").attr("src", $(this).attr("src"));
+						// center vertical
+						$("#lightbox-center").css("margin-top", ($(window).height() - $("#lightbox-center").height())/2  + "px");
+					});
+					$("#lightbox-popup").click(function(){
+						$("#lightbox-popup").fadeOut("fast");
+					});
+				}
+				else {
+					// wrap image in anchor and link to itself
+					$(".listSmallImages").each(function(){
+						var anchor = $("<a/>").attr({"href": this.src});
+						$(this).wrap(anchor);
+					});
+				}
 			});
 			</script>';
 			

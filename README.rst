@@ -1,20 +1,23 @@
 ====================================
-Question2Answer List Uploads v0.2
+Question2Answer List Uploads v0.3
 ====================================
 -----------
 Description
 -----------
-This is a plugin for **Question2Answer** that displays the newest uploads (images) of the last days on a separate page
+This is a plugin for Question2Answer that displays the newest image uploads on a separate page including options to delete unused images
 
 --------
 Features
 --------
 - page only accessible by admin
 - provides a page for showing newest image uploads of last x days, access-URL ``your-q2a-installation.com/listuploads``
-- shows upload date, blobid, size of image in kB, and user that uploaded
-- admin can specifiy number of past days to show images by URL: listuploads?days=5 
+- shows upload date, blobid, post where image is used, original filename, size of image in kB, and user that uploaded it
+- listed images can be opened in lightbox (if installed_) or images are linked to themselves
 - checks if each image is used within posts or as avatar
-- admin can delete images that are not used
+- admin can delete images that are not used from database
+- admin can specifiy parameters by URL to filter images: /listuploads?days=30&remove=1&user=William35 (see details on listuploads page)
+
+.. _installed: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial
 
 ------------
 Installation
@@ -23,7 +26,6 @@ Installation
 #. Get the source code for this plugin directly from github_
 #. Extract the files.
 #. Change language strings in file **qa-list-uploads-lang.php**
-#. Optional: Change settings in file qa-list-uploads-page.php
 #. Upload the files to a subfolder called ``q2a-list-uploads-page`` inside the ``qa-plugins`` folder of your Q2A installation.
 #. Navigate to your site, go to **Admin -> Plugins** on your q2a install. Check if plugin "List Uploads Page" is listed.
 #. Navigate to yourq2asite.com/listuploads to see the new uploads listed

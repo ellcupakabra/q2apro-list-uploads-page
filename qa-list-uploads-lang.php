@@ -27,6 +27,7 @@
 		'upload_by_user' => 'Mitglied', // username
 		'media_item' => 'Bild', // image
 		'not_allowed' => 'Du hast keine Berechtigung, diese Seite aufzurufen.', // You do not have permission to access this site.
+		'user_not_existing' => 'Dieses Mitglied existiert leider nicht. Hast du dich verschrieben?', // This user does not exist, maybe you misspelled the username
 	);
 	
 
