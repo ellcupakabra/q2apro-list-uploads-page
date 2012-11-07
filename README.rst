@@ -1,5 +1,5 @@
 ====================================
-Question2Answer List Uploads v0.3
+Question2Answer List Uploads v0.4
 ====================================
 -----------
 Description
@@ -14,8 +14,8 @@ Features
 - shows upload date, blobid, post where image is used, original filename, size of image in kB, and user that uploaded it
 - listed images can be opened in lightbox (if installed_) or images are linked to themselves
 - checks if each image is used within posts or as avatar
-- admin can delete images that are not used from database
-- admin can specifiy parameters by URL to filter images: /listuploads?days=30&remove=1&user=William35 (see details on listuploads page)
+- admin can delete single images or all images from database, that are not used in posts
+- admin can specifiy parameters by URL to filter images: /listuploads?days=30&remove=1&user=William35 (see instruction on listuploads page)
 
 .. _installed: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial
 

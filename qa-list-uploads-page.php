@@ -48,8 +48,12 @@
 			// e.g. yoursite.com/listuploads?days=5&remove=1
 			$onlyImgToRemove = qa_get("remove");
 			$removeMode = false;
+			$deleteAll = false;
 			if(!is_null($onlyImgToRemove)) {
 				$removeMode=true;
+				if($onlyImgToRemove=="all") {
+					$deleteAll = true;
+				}
 			}
 			
 			// you can specifiy a username in the URL if you wish to only see images of this user
@@ -77,7 +81,7 @@
 			$qa_content = qa_content_prepare();
 
 			// page title
-			$qa_content['title'] = qa_lang_html('qa_list_uploads_lang/page_title') . " ".$lastdays." ".qa_lang_html('qa_list_uploads_lang/page_days'); 
+			$qa_content['title'] = $deleteAll ? "Images have been deleted" : qa_lang_html('qa_list_uploads_lang/page_title') . " ".$lastdays." ".qa_lang_html('qa_list_uploads_lang/page_days'); 
 
 			// return if not admin!
 			$level=qa_get_logged_in_level();
@@ -167,6 +171,22 @@
 					$existsInPost = "<span style='color:#00F'>&rarr; used as avatar image</span>";
 				}
 				
+				// delete all unused images (not in post, not avatar) if flag is set
+				if($deleteAll && $existsInPost==$notFoundString && $existsAsAvatar=="") {
+					// delete image from database, i.e. blobid from table qa_blobs, do not touch images that were uploaded within last 10 min
+					$queryDeleteAll = qa_db_query_sub("DELETE FROM `^blobs` WHERE blobid = ".$blobrow['blobid']." AND created < (NOW( ) - INTERVAL 10 MINUTE) LIMIT 1;");
+					// time difference in secondes
+					$timeDiff = strtotime(date('Y-m-d H:i:s')) - strtotime($blobrow['created']);
+					if($timeDiff>600) {
+						$qa_content['custom'.++$c] = "Image deleted: " . $blobrow['blobid'] . "<br />";
+					}
+					else {
+						$qa_content['custom'.++$c] = "Image too young (survivor): " . $blobrow['blobid'] . "<br />";
+					}
+					continue;
+				}
+
+				
 				$rowString = "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."<br /><span style='color:#777;font-size:11px;'>".$blobrow['filename']."</span></td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
 			
 				// list only images to be deleted or all images
@@ -186,6 +206,12 @@
 
 			
 			/* output into theme */
+			if($deleteAll) {
+				$qa_content['custom'.++$c]='<a href="./listuploads">back to upload list</a>';
+				return $qa_content;
+			}
+			$qa_content['custom'.++$c]='<p><a onclick="javascript:return confirm(\'Are you sure you want to delete all UNUSED IMAGES permanently?\');" href="?remove=all">Remove all unused images from Database</a> &rarr; This is permanently, do a backup before!</p>';
+			$qa_content['custom'.++$c]='<p style="margin-top:10px;"><a href="?remove=1">Show only unused images</a></p>';
 			$qa_content['custom'.++$c]='<div class="listuploads" style="border-radius:0; padding:0; margin-top:-2px;">';
 			
 			$qa_content['custom'.++$c]= $listAllUploads;
