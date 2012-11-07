@@ -211,7 +211,7 @@
 				return $qa_content;
 			}
 			$qa_content['custom'.++$c]='<p><a onclick="javascript:return confirm(\'Are you sure you want to delete all UNUSED IMAGES permanently?\');" href="?remove=all">Remove all unused images from Database</a> &rarr; This is permanently, do a backup before!</p>';
-			$qa_content['custom'.++$c]='<p style="margin-top:10px;"><a href="?remove=1">Show only unused images</a></p>';
+			$qa_content['custom'.++$c]= $removeMode ? '<p style="margin-top:10px;"><a href="./listuploads">Show all images</a></p>': '<p style="margin-top:10px;"><a href="?remove=1">Show only unused images</a></p>';
 			$qa_content['custom'.++$c]='<div class="listuploads" style="border-radius:0; padding:0; margin-top:-2px;">';
 			
 			$qa_content['custom'.++$c]= $listAllUploads;
