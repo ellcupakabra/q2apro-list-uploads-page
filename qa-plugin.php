@@ -3,8 +3,8 @@
 	Plugin Name: List Uploads Page
 	Plugin URI: https://github.com/echteinfachtv/q2a-list-uploads-page
 	Plugin Description: Displays the newest image uploads on a separate page / Q2A Image Manager
-	Plugin Version: 0.4
-	Plugin Date: 2012-11-07
+	Plugin Version: 0.5
+	Plugin Date: 2012-12-29
 	Plugin Author: echteinfachtv
 	Plugin Author URI: http://www.echteinfach.tv/
 	Plugin License: GPLv3

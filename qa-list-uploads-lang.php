@@ -28,6 +28,14 @@
 		'media_item' => 'Bild', // image
 		'not_allowed' => 'Du hast keine Berechtigung, diese Seite aufzurufen.', // You do not have permission to access this site.
 		'user_not_existing' => 'Dieses Mitglied existiert leider nicht. Hast du dich verschrieben?', // This user does not exist, maybe you misspelled the username
+		'nav_back_list' => 'back to upload list',
+		'nav_back_removelist' => 'back to removal list',
+		'show_all' => 'Show all images',
+		'show_unused' => 'Show only unused images',
+		'remove_all' => 'Remove all unused images from database',
+		'remove_all_warning' => 'This is permanently, do a backup before!',
+		'remove_all_warning_popup' => 'Are you sure you want to delete all UNUSED IMAGES permanently (know what you are doing)',
+		'number_images_remove' => 'Images that can be removed',
 	);
 	
 

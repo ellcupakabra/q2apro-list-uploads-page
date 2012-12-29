@@ -1,20 +1,27 @@
 ====================================
-Question2Answer List Uploads v0.4
+Question2Answer List Uploads v0.5
 ====================================
 -----------
 Description
 -----------
-This is a plugin for Question2Answer that displays the newest image uploads on a separate page including options to delete unused images
+This is a plugin for Question2Answer that displays all image uploads on a separate page including options to delete unused images
 
 --------
 Features
 --------
 - page only accessible by admin
-- provides a page for showing newest image uploads of last x days, access-URL ``your-q2a-installation.com/listuploads``
-- shows upload date, blobid, post where image is used, original filename, size of image in kB, and user that uploaded it
+- provides a page for showing image uploads of last 3 days, access-URL ``your-q2a-installation.com/listuploads``
+- checks if each image is used within posts, pages or as avatar
+- shows numbered list with: 
+  * upload date/time, 
+  * displayed image
+  * blobid
+  * information where image is used (question, answer, comment, avatar or custom page)
+  * original filename
+  * size of image in kB
+  * user who uploaded
 - listed images can be opened in lightbox (if installed_) or images are linked to themselves
-- checks if each image is used within posts or as avatar
-- admin can delete single images or all images from database, that are not used in posts
+- admin can delete single images or all images from database that are not used in posts
 - admin can specifiy parameters by URL to filter images: /listuploads?days=30&remove=1&user=William35 (see instruction on listuploads page)
 
 .. _installed: http://question2answer.org/qa/17523/implement-a-lightbox-effect-for-posted-images-q2a-tutorial

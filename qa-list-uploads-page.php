@@ -51,6 +51,11 @@
 			$deleteAll = false;
 			if(!is_null($onlyImgToRemove)) {
 				$removeMode=true;
+				// show unused images of last 30 days, if days not specified in URL
+				if(is_null( qa_get("days") )) {
+					$lastdays = 30;
+				}
+				// if remove=all in URL, then set flag to remove all images
 				if($onlyImgToRemove=="all") {
 					$deleteAll = true;
 				}
@@ -95,8 +100,8 @@
 			if(!is_null($deleteBlobId)) {
 				// delete image from database, i.e. blobid from table qa_blobs
 				$queryDeleteBlob = qa_db_query_sub("DELETE FROM `^blobs` WHERE blobid = ".$deleteBlobId." LIMIT 1;");
-				$qa_content['custom0']='<p style="margin-top:40px;font-size:15px;">Image with BlobID '.$deleteBlobId.' has been deleted!<br /><br />Thanks for cleaning up :)</p>';
-				$qa_content['custom1']='<a href="./listuploads">back to upload list</a>';
+				$qa_content['custom0']='<p style="margin:40px 0 20px 0;font-size:15px;">Image with BlobID '.$deleteBlobId.' has been deleted!<br /><br />Thanks for cleaning up :)</p>';
+				$qa_content['custom1']='<p style="font-size:15px;"><a href="./listuploads">&raquo; '.qa_lang_html('qa_list_uploads_lang/nav_back_list').'</a> | <a href="./listuploads?remove=1">&raquo; '.qa_lang_html('qa_list_uploads_lang/nav_back_removelist').'</a></p>';
 				return $qa_content;
 			}
 			
@@ -118,9 +123,11 @@
 											
 			// counter for custom html output
 			$c = 2;
+			$imgCount = 1;
+			$imgDelCount = 1;
 			
 			// initiate output string
-			$listAllUploads = "<table> <thead><tr><th class='column1'>".qa_lang_html('qa_list_uploads_lang/upload_date')."</th>  <th class='column1'>".qa_lang_html('qa_list_uploads_lang/media_item')."</th> <th>Size</th> <th class='column2'>".qa_lang_html('qa_list_uploads_lang/upload_by_user')."</th> </tr></thead>";
+			$listAllUploads = "<table> <thead><tr><th>&nbsp;</th><th class='column1'>".qa_lang_html('qa_list_uploads_lang/upload_date')."</th>  <th class='column1'>".qa_lang_html('qa_list_uploads_lang/media_item')."</th> <th>Size</th> <th class='column2'>".qa_lang_html('qa_list_uploads_lang/upload_by_user')."</th> </tr></thead>";
 			$d = 0;
 			while ( ($blobrow = qa_db_read_one_assoc($queryRecentUploads,true)) !== null ) {
 				$currentUser = $blobrow['userid'];
@@ -133,7 +140,7 @@
 				$imgSize = round($theSize[0]/1000, 1).' kB';
 				
 				// check if image is used in post content
-				$notFoundString = '<span style="color:#F00">&rarr; not found in posts &rarr; <a style="color:#F00;" href="?delete='.$blobrow['blobid'].'">delete image?</a></span>';
+				$notFoundString = '<span style="color:#F00">&rarr; not found in posts &rarr; <a class="delImageLink" href="?delete='.$blobrow['blobid'].'">delete image?</a></span>';
 				$imageExistsQuery = qa_db_query_sub("SELECT postid,type,parentid FROM `^posts` WHERE `content` LIKE '%".$blobrow['blobid']."%' LIMIT 1");
 				$imageInPost = mysql_fetch_array($imageExistsQuery);
 				$existsInPost = $imageInPost[0];
@@ -141,7 +148,7 @@
 				
 				// set link to question, answer, comment that contains the image
 				if($existsInPost=="") {
-					$existsInPost =  $notFoundString;
+					$existsInPost = $notFoundString;
 				}
 				else if($imageInPost[1]=="A") {
 					$existsInPost = "<a href='".$imageInPost[2]."?show=".$imageInPost[0]."#a".$imageInPost[0]."' style='margin-left:10px;font-size:11px;'>&rarr; in answer: ".$existsInPost."</a>";
@@ -170,15 +177,33 @@
 				if($existsInPost==$notFoundString && $existsAsAvatar!="") {
 					$existsInPost = "<span style='color:#00F'>&rarr; used as avatar image</span>";
 				}
+				else {
+					// check if image is used as default avatar (within table qa_options, field avatar_default_blobid)
+					$avImageExistsQuery2 = qa_db_query_sub("SELECT title FROM `^options` WHERE `content` LIKE '".$blobrow['blobid']."' LIMIT 1");
+					$imageAsAvatar2 = mysql_fetch_array($avImageExistsQuery2);
+					$existsAsAvatar = $imageAsAvatar2[0];
+					if($existsInPost==$notFoundString && $existsAsAvatar!="") {
+						$existsInPost = "<span style='color:#07F'>&rarr; used as default avatar image</span>";
+					}
+				}
 				
-				// delete all unused images (not in post, not avatar) if flag is set
+				// check if image is used in custom pages
+				$pageImgExistsQuery = qa_db_query_sub(" SELECT tags FROM `^pages` WHERE `content` LIKE '%".$blobrow['blobid']."%' LIMIT 1");
+				$imageInPageResult = mysql_fetch_array($pageImgExistsQuery);
+				$existsInPage = $imageInPageResult[0];
+				if($existsInPost==$notFoundString && $existsInPage!="") {
+					$existsInPost = "<span style='color:#09C;'>&rarr; used in custom page: '".$existsInPage."'</span>";
+				}
+				
+				// delete all unused images (not in post, not avatar) if flag is set in URL
 				if($deleteAll && $existsInPost==$notFoundString && $existsAsAvatar=="") {
 					// delete image from database, i.e. blobid from table qa_blobs, do not touch images that were uploaded within last 10 min
 					$queryDeleteAll = qa_db_query_sub("DELETE FROM `^blobs` WHERE blobid = ".$blobrow['blobid']." AND created < (NOW( ) - INTERVAL 10 MINUTE) LIMIT 1;");
-					// time difference in secondes
+					// time difference in seconds
 					$timeDiff = strtotime(date('Y-m-d H:i:s')) - strtotime($blobrow['created']);
 					if($timeDiff>600) {
-						$qa_content['custom'.++$c] = "Image deleted: " . $blobrow['blobid'] . "<br />";
+						$qa_content['custom'.++$c] = '<p>'.$imgDelCount.'. Image deleted: ' . $blobrow['blobid'] . '</p>';
+						$imgDelCount++;
 					}
 					else {
 						$qa_content['custom'.++$c] = "Image too young (survivor): " . $blobrow['blobid'] . "<br />";
@@ -187,12 +212,13 @@
 				}
 
 				
-				$rowString = "<tr><td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."<br /><span style='color:#777;font-size:11px;'>".$blobrow['filename']."</span></td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
+				$rowString = "<tr><td>".($removeMode ? $imgDelCount : $imgCount).".<td>".substr($blobrow['created'],0,16)."</td> <td><img class='listSmallImages' src='".qa_get_blob_url($blobrow['blobid'])."' \> <br /><span style='color:#777;font-size:11px;'>".$blobrow['blobid']."</span> ".$existsInPost."<br /><span style='color:#777;font-size:11px;'>".$blobrow['filename']."</span></td> <td>".$imgSize."</td> <td>". qa_get_user_avatar_html($userrow['flags'], $userrow['email'], $userrow['handle'], $userrow['avatarblobid'], $userrow['avatarwidth'], $userrow['avatarheight'], qa_opt('avatar_users_size'), false) ."<br />". qa_get_one_user_html($userrow['handle'], false) ."</td> </tr>";
 			
 				// list only images to be deleted or all images
 				if($removeMode) {
 					if($existsInPost==$notFoundString) {
 						$listAllUploads .= $rowString;
+						$imgDelCount++;
 					}
 				}
 				else {
@@ -201,32 +227,37 @@
 					$listAllUploads .= $rowString;
 					//}
 				}
+				// image count
+				$imgCount++;
 			}
 			$listAllUploads .= "</table>";
 
 			
 			/* output into theme */
 			if($deleteAll) {
-				$qa_content['custom'.++$c]='<a href="./listuploads">back to upload list</a>';
+				$qa_content['custom'.++$c]='<br /><a href="./listuploads">&raquo; '.qa_lang_html('qa_list_uploads_lang/nav_back_list').'</a>';
 				return $qa_content;
 			}
-			$qa_content['custom'.++$c]='<p><a onclick="javascript:return confirm(\'Are you sure you want to delete all UNUSED IMAGES permanently?\');" href="?remove=all">Remove all unused images from Database</a> &rarr; This is permanently, do a backup before!</p>';
-			$qa_content['custom'.++$c]= $removeMode ? '<p style="margin-top:10px;"><a href="./listuploads">Show all images</a></p>': '<p style="margin-top:10px;"><a href="?remove=1">Show only unused images</a></p>';
+			$qa_content['custom'.++$c]='<p><a onclick="javascript:return confirm(\''.qa_lang_html('qa_list_uploads_lang/remove_all_warning_popup').'?\');" href="?remove=all">'.qa_lang_html('qa_list_uploads_lang/remove_all').'</a> &rarr; '.qa_lang_html('qa_list_uploads_lang/remove_all_warning').'</p>';
+			$qa_content['custom'.++$c]= $removeMode ? '<p style="margin-top:10px;"><a href="./listuploads">'.qa_lang_html('qa_list_uploads_lang/show_all').'</a></p>': '<p style="margin-top:10px;"><a href="?remove=1">'.qa_lang_html('qa_list_uploads_lang/show_unused').'</a></p>';
+			
+			if($removeMode) { $qa_content['custom'.++$c]='<p>'.qa_lang_html('qa_list_uploads_lang/number_images_remove').': '.($imgDelCount-1).'</p>'; }
+	
 			$qa_content['custom'.++$c]='<div class="listuploads" style="border-radius:0; padding:0; margin-top:-2px;">';
 			
 			$qa_content['custom'.++$c]= $listAllUploads;
 			
 			$qa_content['custom'.++$c]='</div>';
-	
+			
 			// show admin tip how to use parameters in URL
-			$qa_content['custom'.++$c]='<div style="padding:20px;border:1px solid #CCC;border-radius:10px;background:#FFC;"><p><b>Tip for Admin:</b><br />Use URL parameters to filter images: /listuploads?<span style="color:#F00">days=30</span>&amp;<span style="color:#090">remove=1</span>&amp;<span style="color:#00F">user=William35</span></p>';
+			$qa_content['custom'.++$c]='<div style="padding:20px;border:1px solid #CCC;border-radius:10px;background:#FFC;"><p><b>Instructions for Admin:</b><br />Use URL parameters to filter images: /listuploads?<span style="color:#F00">days=30</span>&amp;<span style="color:#090">remove=1</span>&amp;<span style="color:#00F">user=William35</span></p>';
 			$qa_content['custom'.++$c]='<p><span style="color:#F00">days=30</span> &rarr; sets number of days to be shown</p>';
 			$qa_content['custom'.++$c]='<p><span style="color:#090">remove=1</span> &rarr; show only images that do not exist in posts/avatars</p>';
 			$qa_content['custom'.++$c]='<p><span style="color:#00F">user=William35</span> &rarr; show only images of certain user</p>';
 			$qa_content['custom'.++$c]='</div>';
 			
 			// CSS: make list bigger on page and style the dropdown
-			$qa_content['custom'.++$c] = '<style type="text/css">table thead tr th,table tfoot tr th{background-color:#cfc;border:1px solid #CCC;padding:4px} table{background-color:#EEE;margin:30px 0 15px;text-align:left;border-collapse:collapse} td{border:1px solid #CCC;padding:1px 10px;line-height:25px}tr:hover{background:#ffc} .column1, .column2 {text-align:center; } td img{border:1px solid #DDD !important; margin-right:5px;} .listSmallImages { max-width:350px; max-height:100px; margin: 5px 0; cursor:pointer; } </style>';
+			$qa_content['custom'.++$c] = '<style type="text/css">table thead tr th,table tfoot tr th{background-color:#cfc;border:1px solid #CCC;padding:4px} table{background-color:#EEE;margin:30px 0 15px;text-align:left;border-collapse:collapse} td{border:1px solid #CCC;padding:1px 10px;line-height:25px}tr:hover{background:#ffc} .column1, .column2 {text-align:center; } td img{border:1px solid #DDD !important; margin-right:5px;} .listSmallImages { max-width:350px; max-height:100px; margin: 5px 0; cursor:pointer; } .delImageLink {color:#F00;} .delImageLink:visited {color:#FAA;} </style>';
 			
 			// jquery lightbox effect: if you click an image, it opens in a popup 
 			// if you do not have a lightbox added to your theme, jquery will link the image to itself
@@ -255,9 +286,6 @@
 				}
 			});
 			</script>';
-			
-			// custom css for qa-main
-			$qa_content['custom'.++$c] = '<style type="text/css">.qa-main { margin:20px 0 0 60px; width:640px; }</style>';
 			
 			return $qa_content;
 		}
