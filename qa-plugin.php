@@ -1,12 +1,12 @@
 <?php
 /*
-	Plugin Name: List Uploads Page
+	Plugin Name: Image Manager / List Uploads
 	Plugin URI: https://github.com/echteinfachtv/q2a-list-uploads-page
-	Plugin Description: Displays the newest image uploads on a separate page / Q2A Image Manager
+	Plugin Description: Displays the newest image uploads on a separate page
 	Plugin Version: 0.5
 	Plugin Date: 2012-12-29
-	Plugin Author: echteinfachtv
-	Plugin Author URI: http://www.echteinfach.tv/
+	Plugin Author: q2apro.com
+	Plugin Author URI: http://www.q2apro.com
 	Plugin License: GPLv3
 	Plugin Minimum Question2Answer Version: 1.5
 	Plugin Update Check URI: https://raw.github.com/echteinfachtv/q2a-list-uploads-page/master/qa-plugin.php

@@ -53,7 +53,7 @@
 				$removeMode=true;
 				// show unused images of last 30 days, if days not specified in URL
 				if(is_null( qa_get("days") )) {
-					$lastdays = 30;
+					$lastdays = 3;
 				}
 				// if remove=all in URL, then set flag to remove all images
 				if($onlyImgToRemove=="all") {
